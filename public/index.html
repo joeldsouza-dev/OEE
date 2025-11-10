@@ -16,31 +16,76 @@
             <form id="book-form">
                 <input type="hidden" id="book-id">
                 
-                <div class="form-group">
-                    <label for="title">Title:</label>
-                    <input type="text" id="title" required>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="title">Title: *</label>
+                        <input type="text" id="title" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="author">Author: *</label>
+                        <input type="text" id="author" required>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="isbn">ISBN: *</label>
+                        <input type="text" id="isbn" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="category">Category: *</label>
+                        <select id="category" required>
+                            <option value="">Select Category</option>
+                            <option value="Science Fiction">Science Fiction</option>
+                            <option value="Horror">Horror</option>
+                            <option value="Literature">Literature</option>
+                            <option value="Mystery">Mystery</option>
+                            <option value="Fantasy">Fantasy</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="publisher">Publisher:</label>
+                        <input type="text" id="publisher">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="published_year">Published Year: *</label>
+                        <input type="number" id="published_year" required>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="pages">Pages:</label>
+                        <input type="number" id="pages">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="language">Language:</label>
+                        <input type="text" id="language" value="English">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="total_copies">Total Copies: *</label>
+                        <input type="number" id="total_copies" min="1" value="1" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="available_copies">Available Copies: *</label>
+                        <input type="number" id="available_copies" min="0" value="1" required>
+                    </div>
                 </div>
                 
                 <div class="form-group">
-                    <label for="author">Author:</label>
-                    <input type="text" id="author" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="isbn">ISBN:</label>
-                    <input type="text" id="isbn" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="published_year">Published Year:</label>
-                    <input type="number" id="published_year" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="available">
-                        <input type="checkbox" id="available" checked>
-                        Available
-                    </label>
+                    <label for="description">Description:</label>
+                    <textarea id="description" rows="3"></textarea>
                 </div>
                 
                 <div class="button-group">
@@ -52,8 +97,29 @@
         
         <!-- Books List -->
         <div class="books-container">
-            <h2>Books Collection</h2>
+            <div class="books-header">
+                <h2>Books Collection</h2>
+                <div class="filter-container">
+                    <label for="category-filter">Filter by Category:</label>
+                    <select id="category-filter">
+                        <option value="all">All Categories</option>
+                        <option value="Science Fiction">Science Fiction</option>
+                        <option value="Horror">Horror</option>
+                        <option value="Literature">Literature</option>
+                        <option value="Mystery">Mystery</option>
+                        <option value="Fantasy">Fantasy</option>
+                    </select>
+                </div>
+            </div>
             <div id="books-list"></div>
+        </div>
+        
+        <!-- Book Details Modal -->
+        <div id="book-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <div id="book-details"></div>
+            </div>
         </div>
     </div>
     

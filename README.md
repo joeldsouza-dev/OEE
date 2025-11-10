@@ -4,11 +4,15 @@ A simple library management system with CRUD operations using Cassandra database
 
 ## Features
 
-- ✅ Create new books
-- ✅ Read/View all books
+- ✅ Create new books with detailed information
+- ✅ Read/View all books with full details
 - ✅ Update book details
 - ✅ Delete books
 - ✅ Track book availability
+- ✅ **5 Book Categories:** Science Fiction, Horror, Literature, Mystery, Fantasy
+- ✅ **Filter by Category:** View books by specific category
+- ✅ **Detailed Book View:** Modal popup with complete book information
+- ✅ **Rich Book Data:** Title, Author, ISBN, Category, Description, Publisher, Pages, Language, Year
 
 ## Tech Stack
 
@@ -65,22 +69,34 @@ http://localhost:3000
 - author (TEXT)
 - isbn (TEXT)
 - published_year (INT)
+- category (TEXT) - Science Fiction, Horror, Literature, Mystery, Fantasy
+- description (TEXT)
+- publisher (TEXT)
+- pages (INT)
+- language (TEXT)
 - available (BOOLEAN)
+
+**Indexes:**
+- books_category_idx - For efficient category filtering
 
 ## API Endpoints
 
 - `GET /api/books` - Get all books
+- `GET /api/books?category=<category>` - Get books by category
 - `GET /api/books/:id` - Get book by ID
+- `GET /api/categories` - Get all available categories
 - `POST /api/books` - Create new book
 - `PUT /api/books/:id` - Update book
 - `DELETE /api/books/:id` - Delete book
 
 ## Usage
 
-1. **Add a Book:** Fill in the form and click "Save Book"
-2. **Edit a Book:** Click "Edit" on any book card
-3. **Delete a Book:** Click "Delete" on any book card
-4. **View Books:** All books are displayed in a grid layout
+1. **Add a Book:** Fill in the form with book details including category, description, publisher, etc., and click "Save Book"
+2. **View Book Details:** Click "View Details" on any book card to see complete information in a modal
+3. **Filter by Category:** Use the dropdown to filter books by Science Fiction, Horror, Literature, Mystery, or Fantasy
+4. **Edit a Book:** Click "Edit" on any book card to modify its details
+5. **Delete a Book:** Click "Delete" on any book card to remove it from the library
+6. **View All Books:** All books are displayed in a responsive grid layout with color-coded categories
 
 ## Notes
 
