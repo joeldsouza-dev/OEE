@@ -3,15 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Library Management System</title>
+    <title>Library Management System - Cassandra</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <h1>📚 Library Management System</h1>
-        
-        <!-- Add/Edit Book Form -->
-        <div class="form-container">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>📚 Library Management System</h1>
+                <p class="tech-badge">⚡ Powered by Apache Cassandra NoSQL Database</p>
+            </div>
+            <div class="header-actions">
+                <div id="user-info" style="display: none;">
+                    <span id="user-display"></span>
+                    <button class="btn btn-secondary btn-small" id="logout-btn">Logout</button>
+                </div>
+                <div id="guest-info">
+                    <button class="btn btn-primary btn-small" id="login-btn">Login</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add/Edit Book Form (Admin only) -->
+        <div class="form-container" id="book-form-container" style="display: none;">
             <h2 id="form-title">Add New Book</h2>
             <form id="book-form">
                 <input type="hidden" id="book-id">
@@ -98,16 +113,19 @@
         <!-- Books List -->
         <div class="books-container">
             <div class="books-header">
-                <h2>Books Collection</h2>
+                <div>
+                    <h2>📚 Books Collection</h2>
+                    <p class="subtitle">🔍 Using Cassandra Secondary Index on Category for Fast Filtering</p>
+                </div>
                 <div class="filter-container">
                     <label for="category-filter">Filter by Category:</label>
                     <select id="category-filter">
-                        <option value="all">All Categories</option>
-                        <option value="Science Fiction">Science Fiction</option>
-                        <option value="Horror">Horror</option>
-                        <option value="Literature">Literature</option>
-                        <option value="Mystery">Mystery</option>
-                        <option value="Fantasy">Fantasy</option>
+                        <option value="all">All Books</option>
+                        <option value="Science Fiction">🚀 Science Fiction</option>
+                        <option value="Horror">👻 Horror</option>
+                        <option value="Literature">📖 Literature</option>
+                        <option value="Mystery">🔍 Mystery</option>
+                        <option value="Fantasy">🐉 Fantasy</option>
                     </select>
                 </div>
             </div>
@@ -117,8 +135,50 @@
         <!-- Book Details Modal -->
         <div id="book-modal" class="modal">
             <div class="modal-content">
-                <span class="close">&times;</span>
+                <span class="close" id="close-book-modal">&times;</span>
                 <div id="book-details"></div>
+            </div>
+        </div>
+
+        <!-- Auth Modal -->
+        <div id="auth-modal" class="modal">
+            <div class="modal-content auth-modal">
+                <span class="close" id="close-auth">&times;</span>
+                <div id="login-form-container">
+                    <h2>Login to Library System</h2>
+                    <p class="auth-hint">Default admin: username=<strong>admin</strong>, password=<strong>admin123</strong></p>
+                    <form id="login-form">
+                        <div class="form-group">
+                            <label for="login-username">Username:</label>
+                            <input type="text" id="login-username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="login-password">Password:</label>
+                            <input type="password" id="login-password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Login</button>
+                        <p class="auth-switch">Don't have an account? <a href="#" id="show-register">Register here</a></p>
+                    </form>
+                </div>
+                <div id="register-form-container" style="display: none;">
+                    <h2>Register New Account</h2>
+                    <form id="register-form">
+                        <div class="form-group">
+                            <label for="register-username">Username:</label>
+                            <input type="text" id="register-username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="register-email">Email:</label>
+                            <input type="email" id="register-email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="register-password">Password:</label>
+                            <input type="password" id="register-password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Register</button>
+                        <p class="auth-switch">Already have an account? <a href="#" id="show-login">Login here</a></p>
+                    </form>
+                </div>
             </div>
         </div>
     </div>

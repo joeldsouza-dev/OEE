@@ -3,12 +3,28 @@ const cassandra = require('cassandra-driver');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
+const bcrypt = require('bcryptjs');
+const session = require('express-session');
 
 const app = express();
 const PORT = 3000;
 
+// Session configuration
+app.use(session({
+  secret: 'library-management-secret-key-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    secure: false, // Set to true if using HTTPS
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true
+}));
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
@@ -109,13 +125,18 @@ async function populateSampleBooks() {
 // Initialize database
 async function initDatabase() {
   try {
+    // Test connection first
+    console.log('Connecting to Cassandra at 127.0.0.1:9042...');
+    await client.connect();
+    console.log('✓ Connected to Cassandra successfully');
+
     // Create keyspace
     await client.execute(`
       CREATE KEYSPACE IF NOT EXISTS library 
       WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1}
     `);
 
-    console.log('Keyspace created');
+    console.log('✓ Keyspace created');
 
     // Use keyspace
     await client.execute('USE library');
@@ -143,7 +164,27 @@ async function initDatabase() {
       CREATE INDEX IF NOT EXISTS books_category_idx ON books (category)
     `);
 
-    console.log('Table and indexes created');
+    // Create users table
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY,
+        username TEXT,
+        email TEXT,
+        password TEXT,
+        role TEXT,
+        created_at TIMESTAMP
+      )
+    `);
+
+    // Create indexes for users
+    await client.execute(`
+      CREATE INDEX IF NOT EXISTS users_username_idx ON users (username)
+    `);
+    await client.execute(`
+      CREATE INDEX IF NOT EXISTS users_email_idx ON users (email)
+    `);
+
+    console.log('✓ Table and indexes created');
     
     // Check if we need to populate sample data
     const countResult = await client.execute('SELECT COUNT(*) as count FROM books');
@@ -152,12 +193,192 @@ async function initDatabase() {
     if (bookCount === 0) {
       console.log('Populating sample books...');
       await populateSampleBooks();
-      console.log('Sample books added!');
+      console.log('✓ Sample books added!');
+    } else {
+      console.log(`✓ Found ${bookCount} existing books in database`);
+    }
+
+    // Create default admin user if no users exist
+    const userCountResult = await client.execute('SELECT COUNT(*) as count FROM users');
+    const userCount = userCountResult.rows[0].count.low || 0;
+    
+    if (userCount === 0) {
+      console.log('Creating default admin user...');
+      const adminId = cassandra.types.Uuid.random();
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      const adminQuery = `
+        INSERT INTO users (id, username, email, password, role, created_at) 
+        VALUES (?, ?, ?, ?, ?, ?)
+      `;
+      await client.execute(adminQuery, [
+        adminId,
+        'admin',
+        'admin@library.com',
+        hashedPassword,
+        'admin',
+        new Date()
+      ], { prepare: true });
+      console.log('✓ Default admin user created (username: admin, password: admin123)');
     }
   } catch (error) {
-    console.error('Database initialization error:', error);
+    if (error.code === 'ECONNREFUSED' || error.message.includes('ECONNREFUSED')) {
+      console.error('\n❌ ERROR: Cannot connect to Cassandra database!');
+      console.error('\n📋 To fix this issue:');
+      console.error('   1. Make sure Apache Cassandra is installed and running');
+      console.error('   2. Start Cassandra using one of these methods:');
+      console.error('      • Docker: docker run -d -p 9042:9042 --name cassandra cassandra:latest');
+      console.error('      • Local install: cassandra (or bin/cassandra in Cassandra directory)');
+      console.error('   3. Wait for Cassandra to fully start (may take 30-60 seconds)');
+      console.error('   4. Verify it\'s running: telnet localhost 9042');
+      console.error('\n💡 For more information, see: https://cassandra.apache.org/download/\n');
+    } else {
+      console.error('Database initialization error:', error.message);
+    }
+    process.exit(1);
   }
 }
+
+// Authentication Middleware
+function requireAuth(req, res, next) {
+  if (req.session && req.session.user) {
+    return next();
+  }
+  return res.status(401).json({ error: 'Authentication required' });
+}
+
+function requireAdmin(req, res, next) {
+  if (req.session && req.session.user && req.session.user.role === 'admin') {
+    return next();
+  }
+  return res.status(403).json({ error: 'Admin access required' });
+}
+
+// Authentication Routes
+
+// Register new user
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { username, email, password } = req.body;
+
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Username, email, and password are required' });
+    }
+
+    // Check if username already exists
+    const existingUsername = await client.execute(
+      'SELECT * FROM users WHERE username = ? ALLOW FILTERING',
+      [username],
+      { prepare: true }
+    );
+
+    if (existingUsername.rows.length > 0) {
+      return res.status(400).json({ error: 'Username already exists' });
+    }
+
+    // Check if email already exists
+    const existingEmail = await client.execute(
+      'SELECT * FROM users WHERE email = ? ALLOW FILTERING',
+      [email],
+      { prepare: true }
+    );
+
+    if (existingEmail.rows.length > 0) {
+      return res.status(400).json({ error: 'Email already exists' });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const userId = cassandra.types.Uuid.random();
+
+    // Insert new user
+    const query = `
+      INSERT INTO users (id, username, email, password, role, created_at) 
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
+    await client.execute(query, [
+      userId,
+      username,
+      email,
+      hashedPassword,
+      'user',
+      new Date()
+    ], { prepare: true });
+
+    res.status(201).json({ message: 'User registered successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Login
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required' });
+    }
+
+    // Find user by username
+    const result = await client.execute(
+      'SELECT * FROM users WHERE username = ? ALLOW FILTERING',
+      [username],
+      { prepare: true }
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    const user = result.rows[0];
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password);
+
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    // Create session
+    req.session.user = {
+      id: user.id.toString(),
+      username: user.username,
+      email: user.email,
+      role: user.role
+    };
+
+    res.json({
+      message: 'Login successful',
+      user: {
+        id: user.id.toString(),
+        username: user.username,
+        email: user.email,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Logout
+app.post('/api/auth/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error logging out' });
+    }
+    res.json({ message: 'Logout successful' });
+  });
+});
+
+// Get current user
+app.get('/api/auth/me', (req, res) => {
+  if (req.session && req.session.user) {
+    res.json({ user: req.session.user });
+  } else {
+    res.status(401).json({ error: 'Not authenticated' });
+  }
+});
 
 // Routes
 
@@ -213,8 +434,8 @@ app.get('/api/books/:id', async (req, res) => {
   }
 });
 
-// Create book
-app.post('/api/books', async (req, res) => {
+// Create book (Admin only)
+app.post('/api/books', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { title, author, isbn, published_year, category, description, publisher, pages, language, total_copies } = req.body;
     const id = cassandra.types.Uuid.random();
@@ -232,8 +453,8 @@ app.post('/api/books', async (req, res) => {
   }
 });
 
-// Update book
-app.put('/api/books/:id', async (req, res) => {
+// Update book (Admin only)
+app.put('/api/books/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { title, author, isbn, published_year, category, description, publisher, pages, language, total_copies, available_copies } = req.body;
 
@@ -250,8 +471,8 @@ app.put('/api/books/:id', async (req, res) => {
   }
 });
 
-// Borrow book (decrease available copies)
-app.post('/api/books/:id/borrow', async (req, res) => {
+// Borrow book (decrease available copies) - Requires authentication
+app.post('/api/books/:id/borrow', requireAuth, async (req, res) => {
   try {
     // Get current book data
     const getQuery = 'SELECT * FROM books WHERE id = ?';
@@ -277,8 +498,8 @@ app.post('/api/books/:id/borrow', async (req, res) => {
   }
 });
 
-// Return book (increase available copies)
-app.post('/api/books/:id/return', async (req, res) => {
+// Return book (increase available copies) - Requires authentication
+app.post('/api/books/:id/return', requireAuth, async (req, res) => {
   try {
     // Get current book data
     const getQuery = 'SELECT * FROM books WHERE id = ?';
@@ -304,8 +525,8 @@ app.post('/api/books/:id/return', async (req, res) => {
   }
 });
 
-// Delete book
-app.delete('/api/books/:id', async (req, res) => {
+// Delete book (Admin only)
+app.delete('/api/books/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const query = 'DELETE FROM books WHERE id = ?';
     await client.execute(query, [req.params.id], { prepare: true });
