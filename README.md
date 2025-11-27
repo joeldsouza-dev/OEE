@@ -102,4 +102,4 @@ http://localhost:3000
 
 - The database and table are created automatically on first run
 - Make sure Cassandra is running before starting the server
-- Default Cassandra connection: localhost:9042, datacenter1
+- Default Cassandra connection: localhost:9042, datacenter
